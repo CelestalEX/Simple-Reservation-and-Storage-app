@@ -64,6 +64,9 @@ class ProductService {
 
         $query = $db->prepare("DELETE FROM products WHERE id = :id");
         $query->execute([':id' => $id]);
+
+        $reservation = $db->prepare('DELETE FROM reservations WHERE product_id = :id');
+        $reservation->execute([':id'=> $id]);
     }
 
 

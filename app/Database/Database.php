@@ -9,6 +9,8 @@ class Database {
             self::$connection->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         }
 
+        self::$connection->exec('PRAGMA foreign_keys = ON');
+
         return self::$connection;
     }
 }
