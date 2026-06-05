@@ -8,16 +8,17 @@ class ProductService {
     public function addProduct(Product $product): void {
         $db = Database::getConnection();
 
-      $stmt = $db->prepare("
+      $query = $db->prepare("
         INSERT INTO products 
-        (name, quantity, sku, category, description, unit, min_quantity, created_at, updated_at)
+        (name, quantity, price, sku, category, description, unit, min_quantity, created_at, updated_at)
         VALUES 
-        (:name, :quantity, :sku, :category, :description, :unit, :min_quantity, :created_at, :updated_at)
+        (:name, :quantity, :price, :sku, :category, :description, :unit, :min_quantity, :created_at, :updated_at)
       ");
 
-      $stmt->execute([
+      $query->execute([
         ':name' => $product->name,
         ':quantity' => $product->quantity,
+        ':price'=> $product->price,
         ':sku' => $product->sku,
         ':category' => $product->category,
         ':description' => $product->description,
@@ -40,6 +41,7 @@ class ProductService {
                 $row['id'],
                 $row['name'],
                 $row['quantity'],
+                $row['price'],
                 $row['sku'],
                 $row['category'],
                 $row['description'],
@@ -69,6 +71,7 @@ class ProductService {
           $rows['id'],
           $rows['name'],
           $rows['quantity'],
+          $rows['price'],
           $rows['sku'],
           $rows['category'],
           $rows['description'],
@@ -82,11 +85,30 @@ class ProductService {
     public function updateProduct(Product $product): void {
         $db = Database::getConnection();
 
-        $query = $db->prepare('UPDATE products SET name = :name, quantity = :quantity WHERE id = :id');
+        $query = $db->prepare(
+          'UPDATE products SET
+            name = :name, 
+            quantity = :quantity, 
+            price = :price,
+            sku = :sku,
+            category = :category,
+            description = :description,
+            unit = :unit,
+            min_quantity = :min_quantity,
+            updated_at = :updated_at
+          WHERE id = :id'
+        );
         $query->execute([
-            ':name'=> $product->name,
+            ':name' => $product->name,
             ':quantity' => $product->quantity,
-            ":id" => $product->id
+            ':price' => $product->price,
+            ':sku' => $product->sku,
+            ':category' => $product->category,
+            ':description' => $product->description,
+            ':unit' => $product->unit,
+            ':min_quantity' => $product->minQuantity,
+            ':updated_at' => $product->updatedAt,
+            ':id' => $product->id
         ]);
     }
 
@@ -100,5 +122,34 @@ class ProductService {
         $reservation->execute([':id'=> $id]);
     }
 
+    public function getWarehouseValueRaport(): array {
+      $products = $this->getAllProducts();
+
+      $report = [];
+      $totalvalue = 0;
+
+      foreach ($products as $p) {
+        $totalvalue += $p->quantity * $p->price;
+      }
+
+      foreach ($products as $p) {
+        $value = $p->quantity * $p->price;
+        $percent = $totalvalue > 0 ? ($value / $totalvalue) * 100 : 0;
+
+        $report[] = [
+          'name'=> $p->name,
+          'quantity'=> $p->quantity,
+          'price'=> $p->price,
+          'value'=> $value,
+          'percent'=> $percent
+        ];
+      }
+
+      return [
+        'items'=> $report,
+        'total'=> $totalvalue
+      ];
+
+    }
 
 }

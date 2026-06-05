@@ -13,32 +13,52 @@
     }
 
     public function createReservation(int $productId, int $quantity): bool {
-        $db = Database::getConnection();
+      $db = Database::getConnection();
 
-        // Sprawdź dostępność
-        $product = $this->productService->getProductById($productId);
+      // Pobieranie produktu
+      $query = $db->prepare("SELECT * FROM products WHERE id = :id");
+      $query->execute([':id' => $productId]);
+      $product = $query->fetch(PDO::FETCH_ASSOC);
 
-        if (!$product || $product->quantity < $quantity) {
-            return false;
-        }
+      if (!$product) {
+        echo "Produkt nie istnieje.\n";
+        return false;
+      }
 
-        // Zmniejsz stan magazynowy
-        $product->quantity -= $quantity;
-        $this->productService->updateProduct($product);
+      // Stan po rezerwacji
+      $remaining = $product['quantity'] - $quantity;
 
-        // Zapisz rezerwację
-        $stmt = $db->prepare("
-            INSERT INTO reservations (product_id, quantity, created_at)
-            VALUES (:product_id, :quantity, :created_at)
-        ");
+      // Jeśli zamówienie obniżyło by stan poniżej minimum
+      if ($remaining < $product['min_quantity']) {
+        echo "Nie można utworzyć rezerwacji — obniżyłaby stan poniżej minimum ({$product['min_quantity']}).\n";
+        return false;
+      }
 
-        $stmt->execute([
-            ':product_id' => $productId,
-            ':quantity' => $quantity,
-            ':created_at' => date('Y-m-d H:i:s')
-        ]);
+      // Jeśli nie ma wystarczająco dużo produktu
+      if ($product['quantity'] < $quantity) {
+        echo "Nie można utworzyć rezerwacji — za mało towaru.\n";
+        return false;
+      }
 
-        return true;
+      // Dodaj rezerwację
+      $stmt = $db->prepare("
+        INSERT INTO reservations (product_id, quantity, created_at)
+        VALUES (:product_id, :quantity, :created_at)
+      ");
+
+      $stmt->execute([
+        ':product_id' => $productId,
+        ':quantity' => $quantity,
+        ':created_at' => date('Y-m-d H:i:s')
+      ]);
+
+      // Zmniejsz stan magazynowy
+      $update = $db->prepare("
+        UPDATE products SET quantity = quantity - :q WHERE id = :id
+      ");
+      $update->execute([':q' => $quantity, ':id' => $productId]);
+
+      return true;
     }
 
     public function getAllReservations(): array {
@@ -72,16 +92,22 @@
       $row = $query->fetch(PDO::FETCH_ASSOC);
 
       if (!$row) {
+        echo "Rezerwacja nie istnieje.\n";
         return false;
       }
 
-      $product = $this->productService->getProductById($row['product_id']);
+      $update = $db->prepare("
+        UPDATE products 
+        SET quantity = quantity + :q 
+        WHERE id = :id
+      ");
+      $update->execute([
+        ':q' => $row['quantity'],
+        ':id' => $row['product_id']
+      ]);
 
-      $product->quantity += $row['quantity'];
-      $this->productService->updateProduct($product);
-
-      $query = $db->prepare('DELETE FROM reservations WHERE id = :id');
-      $query->execute([':id' => $id]);
+      $delete = $db->prepare('DELETE FROM reservations WHERE id = :id');
+      $delete->execute([':id' => $id]);
 
       return true;
     }

@@ -2,72 +2,75 @@
 
 require_once __DIR__ . '/../view/TableRenderer.php';
 require_once __DIR__ .'/../helpers/InputHelper.php';
+require_once __DIR__ .'/../helpers/IdSelectorHelper.php';
 require_once __DIR__ .'/../Services/ProductService.php';
 require_once __DIR__ .'/../Services/ReservationService.php';
 
 
 class ReservationController {
 
-    private ReservationService $service;
-    private ProductService $productService;
+  private ReservationService $service;
+  private ProductService $productService;
 
-    public function __construct() {
-        $this->service = new ReservationService();
-        $this->productService = new ProductService();
+  public function __construct() {
+    $this->service = new ReservationService();
+    $this->productService = new ProductService();
+  }
+
+  public function list(): void {
+    $reservations = $this->service->getAllReservations();
+
+    if (empty($reservations)) {
+      echo "Brak rezerwacji.\n";
+      return;
     }
 
-    public function list(): void {
-        $reservations = $this->service->getAllReservations();
+    $headers = ["Lp", "ID Rez.", "Produkt", "Ilość", "Data"];
+    $rows = [];
 
-        if (empty($reservations)) {
-            echo "Brak rezerwacji.\n";
-            return;
-        }
+    $i = 1;
 
-        $headers = ["Lp", "ID Rez.", "ID Prod.", "Ilość", "Data"];
-        $rows = [];
+    foreach ($reservations as $r) {
 
-        $i = 1;
-        foreach ($reservations as $r) {
-            $rows[] = [
-                $i++,
-                $r->id,
-                $r->productId,
-                $r->quantity,
-                $r->createdAt
-            ];
-        }
+      $product = $this->productService->getProductById($r->productId);
+      $productName = $product ? $product->name : "Nieznany produkt";
 
-        TableRenderer::render($headers, $rows);
+      $rows[] = [
+        $i++,
+        $r->id,
+        $productName,
+        $r->quantity,
+        $r->createdAt
+      ];
     }
 
-    public function add(): void {
+    TableRenderer::render($headers, $rows);
+  }
 
-      $this->productService->getAllProducts();
+  public function add(): void {
 
-      $productId = InputHelper::readInt("Podaj ID produktu: ");
-      $quantity = InputHelper::readInt("Podaj ilość do rezerwacji: ");
+    IdSelectorHelper::showProducts();
 
-      $service = new ReservationService();
+    $productId = InputHelper::readInt("Podaj ID produktu: ");
+    $quantity = InputHelper::readInt("Podaj ilość do rezerwacji: ");
 
-      if ($service->createReservation($productId, $quantity)) {
-        echo "Rezerwacja utworzona! \n";
-      } else {
-        echo "Nie można dokonać rezerwacji - za mało produktu. \n";
-      }
+    $service = new ReservationService();
+
+    if ($service->createReservation($productId, $quantity)) {
+      echo "Rezerwacja utworzona! \n";
+    } else {
+      echo "Nie można dokonać rezerwacji - za mało produktu. \n";
     }
+  }
 
     public function cancel(): void {
-      $this->service->getAllReservations();
+
+      IdSelectorHelper::showReservations();
 
       $id = InputHelper::readInt("Podaj ID rezerwacji do anulowania: ");
 
-      $service = new ReservationService();
-
-      if ($service->cancelReservation($id)) {
+      if ($this->service->cancelReservation($id)) {
         echo "Rezerwacja anulowana\n";
-      } else {
-        echo "Rezerwacja nie istnieje\n";
       }
     }
 }

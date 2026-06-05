@@ -20,7 +20,7 @@ class ProductController {
             return;
         }
 
-        $headers = ["Lp", "ID", "Nazwa", "SKU", "Kategoria", "Ilość", "Min", "Jedn.", "Utworzono", "Zaktualizowano"];
+        $headers = ["Lp", "ID", "Nazwa", "Cena", "SKU", "Kategoria", "Ilość", "Min", "Jedn.", "Utworzono", "Zaktualizowano"];
         $rows = [];
 
         $i = 1;
@@ -29,6 +29,7 @@ class ProductController {
                 $i++,
                 $p->id,
                 $p->name,
+                number_format($p->price,2)." zł",
                 $p->sku,
                 $p->category,
                 $p->quantity,
@@ -43,28 +44,30 @@ class ProductController {
     }
 
     public function add(): void {
-        echo "Nazwa produktu: ";
-      $name = trim(fgets(STDIN));
-      if($name === "") return;
+        
+      $name = InputHelper::readString("Podaj nazwę Produktu: ");
+      if($name === null) return;
 
-      echo "SKU (unikalny kod): ";
-      $sku = trim(fgets(STDIN));
-      if($sku === "") return;
+      $sku = InputHelper::readString("Podaj SKU Produktu: ");
+      if($sku === null) return;
 
-      echo "Kategoria: ";
-      $category = trim(fgets(STDIN));
-      if($category === "") return;
+      $category = InputHelper::readString("Podaj kategorię Produktu: ");
+      if($category === null) return;
 
-      echo "Opis (opcjonalnie): ";
-      $description = trim(fgets(STDIN));
-      if ($description === "") $description = null;
+      $price = InputHelper::readFloat("Podaj cenę Produktu: ");
+      if($price === null) return;
 
-      echo "Jednostka (szt/kg/l): ";
-      $unit = trim(fgets(STDIN));
-      if($unit === "") return;
+      $description = InputHelper::readString("Podaj opis Produktu (opcjonalnie)", true);
+
+      $unit = InputHelper::readString("Podaj Jednostkę (szt/kg/l): ");
+      if($unit === null) return;
 
       $quantity = InputHelper::readInt("Ilość początkowa: ");
+      if($quantity === null) return;
+
       $minQuantity = InputHelper::readInt("Minimalny stan magazynowy: ");
+      if($minQuantity === null) return;
+
 
       $now = date('Y-m-d H:i:s');
 
@@ -72,6 +75,7 @@ class ProductController {
         null,
         $name,
         $quantity,
+        $price,
         $sku,
         $category,
         $description,
@@ -89,7 +93,7 @@ class ProductController {
     public function edit(): void {
       $this->list();
 
-      $id = InputHelper::readInt("Podaj ID produktu do edycji: ");
+      $id = InputHelper::readInt("Podaj ID produktu do edycji: ", true);
 
       $product = $this->productService->getProductById($id);
 
@@ -98,33 +102,29 @@ class ProductController {
         return;
       }
 
-      echo "Nowa nazwa ({$product->name}): ";
-      $name = trim(fgets(STDIN));
-      if ($name === "") $name = $product->name;
+      $name = InputHelper::readString("Nowa nazwa ({$product->name}): ", true);
+      if ($name === null) $name = $product->name;
 
-      echo "Nowe SKU ({$product->sku}): ";
-      $sku = trim(fgets(STDIN));
-      if ($sku === "") $sku = $product->sku;
+      $sku = InputHelper::readString("Nowe SKU ({$product->sku}): ", true);
+      if ($sku === null) $sku = $product->sku;
 
-      echo "Nowa kategoria ({$product->category}): ";
-      $category = trim(fgets(STDIN));
-      if ($category === "") $category = $product->category;
+      $category = InputHelper::readString("Nowa kategoria ({$product->category}): ", true);
+      if ($category === null) $category = $product->category;
 
-      echo "Nowy opis ({$product->description}): ";
-      $description = trim(fgets(STDIN));
-      if ($description === "") $description = $product->description;
+      $price = InputHelper::readFloat("Nowa cena ({$product->price}): ", true);
+      if ($price === null) $price = $product->price;
 
-      echo "Nowa jednostka ({$product->unit}): ";
-      $unit = trim(fgets(STDIN));
-      if ($unit === "") $unit = $product->unit;
+      $description = InputHelper::readString("Nowy opis ({$product->description}): ", true);
+      if ($description === null) $description = $product->description;
 
-      echo "Nowa ilość ({$product->quantity}): ";
-      $quantityInput = trim(fgets(STDIN));
-      $quantity = $quantityInput === "" ? $product->quantity : (int)$quantityInput;
+      $unit = InputHelper::readString("Nowa jednostka ({$product->unit}): ", true);
+      if ($unit === null) $unit = $product->unit;
 
-      echo "Nowy minimalny stan ({$product->minQuantity}): ";
-      $minInput = trim(fgets(STDIN));
-      $minQuantity = $minInput === "" ? $product->minQuantity : (int)$minInput;
+      $quantityInput = InputHelper::readInt("Nowa ilość ({$product->quantity}): ", true);
+      $quantity = $quantityInput === null ? $product->quantity : (int)$quantityInput;
+
+      $minInput = InputHelper::readInt("Nowy minimalny stan ({$product->minQuantity}): ", true);
+      $minQuantity = $minInput === null ? $product->minQuantity : (int)$minInput;
 
       $updatedAt = date('Y-m-d H:i:s');
 
@@ -132,6 +132,7 @@ class ProductController {
         $id,
         $name,
         $quantity,
+        $price,
         $sku,
         $category,
         $description,
@@ -167,6 +168,29 @@ class ProductController {
         echo "Anulowano.\n";
       }
     }
+
+    public function reportValue(): void {
+      $data = $this->productService->getWarehouseValueRaport();
+
+      $headers = ["Nazwa", "Ilość", "Cena", "Wartość", "Udział %"];
+      $rows = [];
+
+      foreach ($data["items"] as $item) {
+        $rows[] = [
+          $item["name"],
+          $item["quantity"],
+          number_format($item["price"],2) . " zł",
+          number_format($item["value"],2) . " zł",
+          number_format($item["percent"],2) ." %",
+        ];
+      }
+
+      echo "\n=== RAPORT WARTOŚCI MAGAZYNU ===\n";
+      TableRenderer::render($headers, $rows);
+
+      echo "\nŁączna wartość magazynu: ".number_format($data['total'], 2) ." zł\n";
+    }
+
 }
 
 ?>
