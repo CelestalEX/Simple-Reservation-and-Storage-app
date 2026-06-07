@@ -49,6 +49,79 @@ class OrderController{
     }
   }
 
+  public function editItem(): void{
+
+    IdSelectorHelper::showOrders();
+    $orderId = InputHelper::readInt("Podaj ID zamówienia (enter by anulować akcję): ", true);
+
+    if ($orderId === null) {
+      echo "Powrót do menu\n";
+      return;
+    }
+
+    IdSelectorHelper::showItems($orderId);
+
+    $input = InputHelper::readInt("Podaj ID pozycji do edycji (enter by anulować akcję): ", true);
+
+    if ($input === null) {
+      echo "Powrót do menu\n";
+      return;
+    }
+
+    $itemId = (int)$input;
+
+    $newQuantity = InputHelper::readInt("Podaj nową ilość: ");
+
+    $confirm = strtolower(InputHelper::readString("Czy na pewno zmienić ilość pozycji ID $itemId na $newQuantity? (t/N): ", true)) ?: "n";
+
+    if ($confirm !== "t") {
+      echo "Anulowano operację.\n";
+      return;
+    }
+
+    if ($this->orderService->editItem($itemId, $newQuantity)) {
+        echo "Pozycja zaktualizowana, magazyn zaktualizowany.\n";
+    } else {
+        echo "Nie udało się zaktualizować pozycji.\n";
+    }
+  }
+
+  public function removeItem(): void{
+
+    IdSelectorHelper::showOrders();
+
+    $orderId = InputHelper::readInt("Podaj ID zamówienia (enter by anulowac akcję): ", true);
+
+    if ($orderId === null || $orderId === "") {
+      echo "Powrót do menu\n";
+      return;
+    }
+
+    IdSelectorHelper::showItems($orderId);
+
+    $input = InputHelper::readInt("Podaj ID pozycji do usunięcia (enter by anulować akcję): ", true);
+
+    if ($input === null || $input === "") {
+      echo "Powrót do menu\n";
+      return;
+    }
+
+    $itemId = (int) $input;
+
+    $confirm = strtolower(InputHelper::readstring("Czy napewno usunąć pozycję ID $itemId (t/N): ", true)) ?: "n";
+
+    if ($confirm !== "t") {
+      echo "Anulowano operację.\n";
+      return;
+    }
+
+    if ($this->orderService->removeItem($itemId)) {
+        echo "Pozycja usunięta, ilość zwrócona do magazynu.\n";
+    } else {
+        echo "Nie udało się usunąć pozycji.\n";
+    }
+  }
+
   public function list(): void {
     $orders = $this->orderService->getAllOrders();
 
@@ -124,7 +197,7 @@ class OrderController{
       return;
     }
 
-    $confirm = strtolower(InputHelper::readString("Czy na pewno anulować zamówienie ID $id? (t/N)", true)) || "n";
+    $confirm = strtolower(InputHelper::readString("Czy na pewno anulować zamówienie ID $id? (t/N): ", true)) ?: "n";
 
     if ($confirm !== "t"){
       echo "Anulowane operację.\n";

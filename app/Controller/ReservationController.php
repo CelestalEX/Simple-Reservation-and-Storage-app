@@ -80,7 +80,7 @@ class ReservationController {
         return;
       }
 
-      $confirm = strtolower(InputHelper::readString("Czy napewno anulować rezerwację ID $id? (t/N)")) || "n";
+      $confirm = strtolower(InputHelper::readString("Czy napewno anulować rezerwację ID $id? (t/N)")) ?: "n";
 
       if ($confirm !== "t") {
         echo "Anulowane operację.\n";

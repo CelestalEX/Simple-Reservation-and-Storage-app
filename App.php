@@ -84,9 +84,11 @@ class App {
               case 2: $this->orderController->addItem(); break;
               case 3: $this->orderController->list(); break;
               case 4: $this->orderController->details(); break;
-              case 5: $this->orderController->finalize(); break;
-              case 6: $this->orderController->cancel(); break;
-              case 7: return;
+              case 5: $this->orderController->editItem(); break;
+              case 6: $this->orderController->removeItem(); break;
+              case 7: $this->orderController->finalize(); break;
+              case 8: $this->orderController->cancel(); break;
+              case 9: return;
             }
         }
       }

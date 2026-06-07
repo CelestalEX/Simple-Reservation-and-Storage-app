@@ -75,6 +75,86 @@ class OrderService {
     return true;
   }
 
+  public function editItem (int $itemId, int $newQuantity): bool {
+    $db = Database::getConnection();
+
+    $query = $db->prepare("SELECT * FROM order_items WHERE id = :id");
+    $query->execute([":id" => $itemId]);
+    $item = $query->fetch(PDO::FETCH_ASSOC);
+
+    if (!$item) {
+      echo "Pozycja zamówienia nie istnieje\n";
+      return false;
+    }
+
+    $oldQuantity = (int)$item["quantity"];
+    $productId = (int)$item["product_id"];
+
+    $difference = $newQuantity - $oldQuantity;
+
+    // Jeśli zwiększamy ilość - pobierz z magazynu
+    if ($difference > 0) {
+        $update = $db->prepare("
+            UPDATE products 
+            SET quantity = quantity - :q 
+            WHERE id = :id
+        ");
+        $update->execute([
+            ':q' => $difference,
+            ':id' => $productId
+        ]);
+    }
+
+    // Jeśli zmiejszamy ilość - zwrot do magazynu
+    if ($difference < 0) {
+        $update = $db->prepare("
+            UPDATE products 
+            SET quantity = quantity + :q 
+            WHERE id = :id
+        ");
+        $update->execute([
+            ':q' => abs($difference),
+            ':id' => $productId
+        ]);
+    }
+
+    $updateItem = $db->prepare("
+        UPDATE order_items 
+        SET quantity = :q, total = price * :q
+        WHERE id = :id
+    ");
+    $updateItem->execute([
+        ':q' => $newQuantity,
+        ':id' => $itemId
+    ]);
+
+    return true;
+  }
+
+  public function removeItem(int $itemId): bool {
+    $db = Database::getConnection();
+
+    $query = $db->prepare('SELECT * FROM order_items WHERE id = :id');
+    $query->execute([':id'=> $itemId]);
+    $item = $query->fetch(PDO::FETCH_ASSOC);
+
+    if (!$item) {
+      echo 'Pozycja zamówienia nie istnieje.\n';
+      return false;
+    }
+
+    $update = $db->prepare('
+      UPDATE products
+      SET quantity = quantity + :q
+      WHERE id = :id
+    ');
+
+    $delete = $db->prepare('DELETE FROM order_items WHERE id = :id');
+    $delete->execute([':id'=> $itemId]);
+
+    return true;
+  }
+
   public function getAllOrders(): array {
     $db = Database::getConnection();
     $rows = $db->query("SELECT * FROM orders")->fetchAll(PDO::FETCH_ASSOC);

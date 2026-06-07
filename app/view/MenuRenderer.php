@@ -34,8 +34,10 @@ class MenuRenderer {
       echo "2. Dodaj pozycję do zamówienia\n";
       echo "3. Wyświetl zamówienia\n";
       echo "4. Wyświetl szczegóły zamówienia\n";
-      echo "5. Finalizuj zamówienie\n";
-      echo "6. Anuluj zamówienie\n";
-      echo "7. Powrót\n";
+      echo "5. Edytuj szczegóły zamówienia\n";
+      echo "6. Usuń pozycję zamówienia\n";
+      echo "7. Finalizuj zamówienie\n";
+      echo "8. Anuluj zamówienie\n";
+      echo "9. Powrót\n";
     }
 }

@@ -94,4 +94,35 @@ class IdSelectorHelper {
         echo "\n=== LISTA REZERWACJI ===\n";
         TableRenderer::render($headers, $rows);
     }
+
+    public static function showItems(int $orderId): void {
+      $orderService = new OrderService();
+      $productService = new ProductService();
+
+      $items = $orderService->getOrderItems($orderId);
+
+      if (empty($items)) {
+        echo "Brak pozycji w zamówieniu";
+        return;
+      }
+
+      $headers = ["ID pozycji", "Produkt", "Ilość", "Cena", "Razem"];
+        $rows = [];
+
+        foreach ($items as $i) {
+            $product = $productService->getProductById($i->productId);
+            $name = $product ? $product->name : "Nieznany produkt";
+
+            $rows[] = [
+                $i->id,
+                $name,
+                $i->quantity,
+                number_format($i->price, 2) . " zł",
+                number_format($i->total, 2) . " zł"
+            ];
+        }
+
+        TableRenderer::render($headers, $rows);
+        
+    }
 }
