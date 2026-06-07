@@ -45,28 +45,25 @@ class ProductController {
 
     public function add(): void {
         
-      $name = InputHelper::readString("Podaj nazwę Produktu: ");
-      if($name === null) return;
+      $name = InputHelper::readString("Podaj nazwę Produktu (enter by anulować akcję): ", true);
+      if($name === null){
+        echo "Powrót do menu";
+        return;
+      };
 
       $sku = InputHelper::readString("Podaj SKU Produktu: ");
-      if($sku === null) return;
 
       $category = InputHelper::readString("Podaj kategorię Produktu: ");
-      if($category === null) return;
 
       $price = InputHelper::readFloat("Podaj cenę Produktu: ");
-      if($price === null) return;
 
       $description = InputHelper::readString("Podaj opis Produktu (opcjonalnie)", true);
 
       $unit = InputHelper::readString("Podaj Jednostkę (szt/kg/l): ");
-      if($unit === null) return;
 
       $quantity = InputHelper::readInt("Ilość początkowa: ");
-      if($quantity === null) return;
 
       $minQuantity = InputHelper::readInt("Minimalny stan magazynowy: ");
-      if($minQuantity === null) return;
 
 
       $now = date('Y-m-d H:i:s');
@@ -93,7 +90,12 @@ class ProductController {
     public function edit(): void {
       $this->list();
 
-      $id = InputHelper::readInt("Podaj ID produktu do edycji: ", true);
+      $id = InputHelper::readInt("Podaj ID produktu do edycji (enter by anulować akcję): ", true);
+
+      if ($id === null){
+        echo "Powrót do menu";
+        return;
+      };
 
       $product = $this->productService->getProductById($id);
 
@@ -148,8 +150,12 @@ class ProductController {
 
     public function delete(): void {
       $this->list();
-      echo "Podaj ID produktu do usunięcia: ";
-      $id = (int) trim(fgets(STDIN));
+      $id = InputHelper::readInt("Podaj ID produktu do usunięcia (enter by anulować akcję): ", true);
+
+      if ($id === null || $id === "") {
+        echo "Powrót do menu";
+        return;
+      }
 
       $product = $this->productService->getProductById($id);
 

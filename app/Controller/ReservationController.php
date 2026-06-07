@@ -51,7 +51,13 @@ class ReservationController {
 
     IdSelectorHelper::showProducts();
 
-    $productId = InputHelper::readInt("Podaj ID produktu: ");
+    $productId = InputHelper::readInt("Podaj ID produktu (entre by anulować akcję): ", true);
+
+    if ($productId === null || $productId === "") {
+        echo "Powrót do menu";
+        return;
+      }
+
     $quantity = InputHelper::readInt("Podaj ilość do rezerwacji: ");
 
     $service = new ReservationService();
@@ -67,7 +73,20 @@ class ReservationController {
 
       IdSelectorHelper::showReservations();
 
-      $id = InputHelper::readInt("Podaj ID rezerwacji do anulowania: ");
+      $id = InputHelper::readInt("Podaj ID rezerwacji do anulowania (enter by anulować akcję): ", true);
+
+      if ($id === null || $id === "") {
+        echo "Powrót do menu";
+        return;
+      }
+
+      $confirm = strtolower(InputHelper::readString("Czy napewno anulować rezerwację ID $id? (t/N)")) || "n";
+
+      if ($confirm !== "t") {
+        echo "Anulowane operację.\n";
+        return; 
+      }
+    
 
       if ($this->service->cancelReservation($id)) {
         echo "Rezerwacja anulowana\n";

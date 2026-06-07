@@ -17,7 +17,13 @@ class OrderController{
   }
 
   public function create(): void{
-    $customer = InputHelper::readString("Nazwa klienta: ");
+    $customer = InputHelper::readString("Nazwa klienta (enter by anulować akcję): ", true);
+
+    if ($customer === null || $customer === "") {
+      echo "Powrót do menu\n";
+      return;
+    }
+
     $orderId = $this->orderService->createOrder($customer);
 
     echo "Utworzono zamówienie ID: $orderId\n";
@@ -25,7 +31,13 @@ class OrderController{
 
   public function addItem(): void{
     IdSelectorHelper::showOrders();
-    $orderId = InputHelper::readInt("ID zamówienia: ");
+    $orderId = InputHelper::readInt("ID zamówienia (enter by anulować akcję): ", true);
+
+    if ($orderId === null || $orderId === "") {
+      echo "Powrót do menu\n";
+      return;
+    }
+  
     IdSelectorHelper::showProducts();
     $productId = InputHelper::readInt("ID produktu: ");
     $quantity = InputHelper::readInt("Ilość: ");
@@ -57,7 +69,13 @@ class OrderController{
 
   public function details(): void {
     IdSelectorHelper::showOrders();
-    $id = InputHelper::readInt("ID zamówienia: ");
+    $id = InputHelper::readInt("ID zamówienia (enter by anulować akcję): ", true);
+
+    if ($id === null || $id === "") {
+      echo "Powrót do menu\n";
+      return;
+    }
+
     $items = $this->orderService->getOrderItems($id);
 
     $headers = ["Produkt", "Ilość", "Cena", "Razem"];
@@ -85,7 +103,12 @@ class OrderController{
 
   public function finalize(): void {
     IdSelectorHelper::showOrders(); 
-    $id = InputHelper::readInt("ID zamówienia: ");
+    $id = InputHelper::readInt("ID zamówienia (enter by anulować akcję): ", true);
+
+    if ($id === null || $id === "") {
+      echo "Powrót do menu\n";
+      return;
+    }
 
     if ($this->orderService->finalizeOrder($id)) {
         echo "Zamówienie zrealizowane.\n";
@@ -94,7 +117,19 @@ class OrderController{
 
   public function cancel(): void {
     IdSelectorHelper::showOrders();
-    $id = InputHelper::readInt("ID zamówienia: ");
+    $id = InputHelper::readInt("ID zamówienia (enter by anulować akcję): ", true);
+
+    if ($id === null || $id === "") {
+      echo "Powrót do menu\n";
+      return;
+    }
+
+    $confirm = strtolower(InputHelper::readString("Czy na pewno anulować zamówienie ID $id? (t/N)", true)) || "n";
+
+    if ($confirm !== "t"){
+      echo "Anulowane operację.\n";
+      return;
+    }
 
     if ($this->orderService->cancelOrder($id)) {
         echo "Zamówienie anulowane.\n";
