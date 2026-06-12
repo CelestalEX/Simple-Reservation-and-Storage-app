@@ -4,19 +4,21 @@ require_once __DIR__ ."/./app/helpers/InputHelper.php";
 require_once __DIR__ ."/./app/Controller/ProductController.php";
 require_once __DIR__ ."/./app/Controller/ReservationController.php";
 require_once __DIR__ ."/./app/Controller/OrderController.php";
+require_once __DIR__ ."/./app/Controller/LocationController.php";
 require_once __DIR__ ."/./app/view/MenuRenderer.php";
 
 class App {
 
     private ProductController $productController;
     private ReservationController $reservationController;
-
     private OrderController $orderController;
+    private LocationController $locationController;
 
     public function __construct() {
         $this->productController = new ProductController();
         $this->reservationController = new ReservationController();
-        $this-> orderController = new OrderController();
+        $this->orderController = new OrderController();
+        $this->locationController = new LocationController();
     }
 
     public function run(): void {
@@ -38,6 +40,10 @@ class App {
                     break;
 
                 case 4:
+                    $this->locationsMenu();
+                    break;
+
+                case 0:
                     echo "Zamykanie aplikacji...\n";
                     exit;
             }
@@ -55,7 +61,7 @@ class App {
                 case 3: $this->productController->edit(); break;
                 case 4: $this->productController->delete(); break;
                 case 5: $this->productController->reportValue(); break;
-                case 6: return;
+                case 0: return;
             }
         }
     }
@@ -63,13 +69,13 @@ class App {
     private function reservationMenu(): void {
         while (true) {
             MenuRenderer::reservationMenu();
-            $choice = InputHelper::readInt("\nWybierz opcję: ", true);
+            $choice = InputHelper::readInt("\nWybierz opcję: ");
 
             switch ($choice) {
                 case 1: $this->reservationController->add(); break;
                 case 2: $this->reservationController->list(); break;
                 case 3: $this->reservationController->cancel(); break;
-                case 4: return;
+                case 0: return;
             }
         }
     }
@@ -77,7 +83,7 @@ class App {
     private function orderMenu(): void {
         while (true) {
             MenuRenderer::orderMenu();
-            $choice = InputHelper::readInt("\nWybierz opcję: ", true);
+            $choice = InputHelper::readInt("\nWybierz opcję: ");
 
             switch ($choice) {
               case 1: $this->orderController->create(); break;
@@ -88,10 +94,24 @@ class App {
               case 6: $this->orderController->removeItem(); break;
               case 7: $this->orderController->finalize(); break;
               case 8: $this->orderController->cancel(); break;
-              case 9: return;
+              case 0: return;
             }
         }
       }
-}
 
+    private function locationsMenu(): void {
+      while (true) {
+        MenuRenderer::locationsMenu();
+        $choice = InputHelper::readInt("\nWybierz opcję: ");
+
+        switch ($choice) {
+          case 1: $this->locationController->listLocations(); break;
+          case 2: $this->locationController->createLocation(); break;
+          case 3: $this->locationController->moveProduct(); break;
+          case 4: $this->locationController->showProductLocations(); break;
+          case 0: return;
+        }
+      };
+    }
+}
 ?>

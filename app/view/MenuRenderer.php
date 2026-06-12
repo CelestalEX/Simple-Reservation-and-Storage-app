@@ -7,7 +7,8 @@ class MenuRenderer {
       echo "1. Magazyn\n";
       echo "2. Rezerwacje\n";
       echo "3. Zamówienia klientów\n";
-      echo "4. Wyjście\n";
+      echo "4. Lokalizacje magazynowe\n";
+      echo "0. Wyjście\n";
     }
 
     public static function warehouseMenu(): void {
@@ -17,7 +18,7 @@ class MenuRenderer {
       echo "3. Edytuj produkt\n";
       echo "4. Usuń produkt\n";
       echo "5. Raport wartości magazynu\n";
-      echo "6. Powrót\n";
+      echo "0. Powrót\n";
     }
 
     public static function reservationMenu(): void {
@@ -25,7 +26,7 @@ class MenuRenderer {
       echo "1. Dodaj rezerwację\n";
       echo "2. Wyświetl rezerwacje\n";
       echo "3. Anuluj rezerwację\n";
-      echo "4. Powrót\n";
+      echo "0. Powrót\n";
     }
 
     public static function orderMenu(): void {
@@ -38,6 +39,15 @@ class MenuRenderer {
       echo "6. Usuń pozycję zamówienia\n";
       echo "7. Finalizuj zamówienie\n";
       echo "8. Anuluj zamówienie\n";
-      echo "9. Powrót\n";
+      echo "0. Powrót\n";
+    }
+
+    public static function locationsMenu(): void {
+      echo "\n=== LOKALIZACJE MAGAZYNOWE ===\n";
+      echo "1. Lista lokalizacji\n";
+      echo "2. Dodaj lokalizację\n";
+      echo "3. Przesuń produkt między lokacjami\n";
+      echo "4. Pokaż rozmieszczenie produktu\n";
+      echo "0. Powrót\n";
     }
 }

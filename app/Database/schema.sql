@@ -11,7 +11,8 @@ CREATE TABLE IF NOT EXISTS products (
   unit TEXT NOT NULL,
   min_quantity INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
+  updated_at TEXT NOT NULL,
+  use_locations INTEGER DEFAULT 1
 );
 
 CREATE TABLE IF NOT EXISTS reservations (
@@ -39,4 +40,21 @@ CREATE TABLE IF NOT EXISTS order_items (
   total FLOAT NOT NULL,
   FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
   FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS locations (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  code TEXT NOT NULL UNIQUE,
+  description TEXT,
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS product_locations(
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  product_id INTEGER NOT NULL,
+  location_id INTEGER NOT NULL,
+  quantity INTEGER NOT NULL DEFAULT 0,
+  updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+  FOREIGN KEY (location_id) REFERENCES locations(id) ON DELETE CASCADE
 );

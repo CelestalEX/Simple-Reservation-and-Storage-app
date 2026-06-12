@@ -3,6 +3,7 @@
 require_once __DIR__ . '/../Services/ProductService.php';
 require_once __DIR__ . '/../Services/OrderService.php';
 require_once __DIR__ . '/../Services/ReservationService.php';
+require_once __DIR__ . '/../Services/LocationService.php';
 require_once __DIR__ . '/../view/TableRenderer.php';
 
 class IdSelectorHelper {
@@ -102,7 +103,7 @@ class IdSelectorHelper {
       $items = $orderService->getOrderItems($orderId);
 
       if (empty($items)) {
-        echo "Brak pozycji w zamówieniu";
+        echo "Brak pozycji w zamówieniu\n";
         return;
       }
 
@@ -124,5 +125,31 @@ class IdSelectorHelper {
 
         TableRenderer::render($headers, $rows);
         
+    }
+
+    public static function showLocations(): void {
+      $locationService = new LocationService();
+
+      $locations = $locationService->getAll();
+
+      if (empty($locations)) {
+        echo "Brak lokalizacji\n";
+        return;
+      }
+
+      $headers = ["ID", "Kod", "Opis", "Utworzono"];
+      $rows = [];
+
+      foreach ($locations as $i) {
+
+        $rows[] = [
+          $i->id,
+          $i->code,
+          (string)($i->description ?? "-"),
+          $i->createdAt
+        ];
+      }
+
+      TableRenderer::render($headers, $rows);
     }
 }
