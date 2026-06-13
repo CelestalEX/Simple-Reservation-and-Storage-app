@@ -46,8 +46,10 @@ class MenuRenderer {
       echo "\n=== LOKALIZACJE MAGAZYNOWE ===\n";
       echo "1. Lista lokalizacji\n";
       echo "2. Dodaj lokalizację\n";
-      echo "3. Przesuń produkt między lokacjami\n";
-      echo "4. Pokaż rozmieszczenie produktu\n";
+      echo "3. Edytuj lokalizację\n";
+      echo "4. Usuń lokalizację\n";
+      echo "5. Przesuń produkt między lokacjami\n";
+      echo "6. Pokaż rozmieszczenie produktu\n";
       echo "0. Powrót\n";
     }
 }

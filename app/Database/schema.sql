@@ -46,6 +46,13 @@ CREATE TABLE IF NOT EXISTS locations (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   code TEXT NOT NULL UNIQUE,
   description TEXT,
+  type TEXT NOT NULL DEFAULT 'pick'
+    CHECK(type IN ('pick','putaway','bulk','returns','damaged','expired')),
+  status TEXT NOT NULL DEFAULT 'active'
+    CHECK(status IN ('active','blocked','inventory','disabled')),
+  max_units INTEGER,
+  max_weight FLOAT,
+  max_volume FLOAT,
   created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -58,3 +65,7 @@ CREATE TABLE IF NOT EXISTS product_locations(
   FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
   FOREIGN KEY (location_id) REFERENCES locations(id) ON DELETE CASCADE
 );
+
+-- ALTER TABLE locations
+-- ADD COLUMN status TEXT NOT NULL DEFAULT 'active'
+-- CHECK(status IN ('active','blocked','inventory','disabled'));

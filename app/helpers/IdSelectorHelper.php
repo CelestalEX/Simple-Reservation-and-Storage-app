@@ -137,7 +137,7 @@ class IdSelectorHelper {
         return;
       }
 
-      $headers = ["ID", "Kod", "Opis", "Utworzono"];
+      $headers = ["ID", "Kod", "Typ", "Status", "Opis", "Utworzono"];
       $rows = [];
 
       foreach ($locations as $i) {
@@ -145,6 +145,8 @@ class IdSelectorHelper {
         $rows[] = [
           $i->id,
           $i->code,
+          $i->type,
+          $i->status,
           (string)($i->description ?? "-"),
           $i->createdAt
         ];
