@@ -1,19 +1,22 @@
 <?php
 
+require_once __DIR__ ."/../Database/Database.php";
+require_once __DIR__ ."/../Models/ProductLocation.php";
+
 class ProductLocationService {
 
     public function getLocationsForProduct(int $productId): array
     {
         $db = Database::getConnection();
-        $stmt = $db->prepare("
+        $query = $db->prepare("
             SELECT * FROM product_locations
             WHERE product_id = :pid
             ORDER BY location_id ASC
         ");
-        $stmt->execute([':pid' => $productId]);
+        $query->execute([':pid' => $productId]);
 
         $list = [];
-        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        while ($row = $query->fetch(PDO::FETCH_ASSOC)) {
             $pl = new ProductLocation();
             $pl->id = $row['id'];
             $pl->productId = $row['product_id'];
@@ -40,18 +43,30 @@ class ProductLocationService {
         return (int)($row['total'] ?? 0);
     }
 
-    public function addToLocation(int $productId, int $locationId, int $qty): bool
-    {
+    public function addToLocation(Product $product, Location $loc, int $qty): bool{
+
+    var_dump($product->useLocations);
+
+
+      if (!$product->useLocations) {
+        echo "Ten produkt nie korzysta z lokalizacji.\n";
+        return false;
+      }
+
+      if (!$this->canAddToLocation($product, $loc, $qty)) {
+        return false;
+      }
+    
         $db = Database::getConnection();
 
         // Czy istnieje wpis?
-        $stmt = $db->prepare("
+        $query = $db->prepare("
             SELECT id, quantity FROM product_locations
             WHERE product_id = :pid AND location_id = :lid
         ");
-        $stmt->execute([':pid' => $productId, ':lid' => $locationId]);
+        $query->execute([':pid' => $product->id, ':lid' => $loc->id]);
 
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        $row = $query->fetch(PDO::FETCH_ASSOC);
 
         if ($row) {
             // Aktualizacja istniejącej lokalizacji
@@ -76,24 +91,24 @@ class ProductLocationService {
         ");
 
         return $insert->execute([
-            ':pid' => $productId,
-            ':lid' => $locationId,
+            ':pid' => $product->id,
+            ':lid' => $loc->id,
             ':q' => $qty
         ]);
     }
 
-    public function removeFromLocation(int $productId, int $locationId, int $qty): bool
+    public function removeFromLocation(Product $product, Location $loc, int $qty): bool
     {
         $db = Database::getConnection();
 
-        $stmt = $db->prepare("
+        $query = $db->prepare("
             SELECT id, quantity FROM product_locations
             WHERE product_id = :pid AND location_id = :lid
         ");
-        $stmt->execute([':pid' => $productId, ':lid' => $locationId]);
+        $query->execute([':pid' => $product->id, ':lid' => $loc->id]);
 
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        if (!$row) {
+        $row = $query->fetch(PDO::FETCH_ASSOC);
+        if (!$row || $row['quantity'] < $qty) {
             return false;
         }
 
@@ -122,29 +137,159 @@ class ProductLocationService {
         ]);
     }
 
-    public function move(int $productId, int $fromLoc, int $toLoc, int $qty): bool
-    {
+    public function move(Product $product, Location $fromLoc, Location $toLoc, int $qty): bool{
+
         $db = Database::getConnection();
         $db->beginTransaction();
 
         try {
-            if (!$this->removeFromLocation($productId, $fromLoc, $qty)) {
-                $db->rollBack();
-                return false;
-            }
 
-            if (!$this->addToLocation($productId, $toLoc, $qty)) {
-                $db->rollBack();
-                return false;
-            }
+        $stmt = $db->prepare("
+            SELECT quantity 
+            FROM product_locations 
+            WHERE product_id = :p AND location_id = :l
+        ");
+        $stmt->execute([':p' => $product->id, ':l' => $fromLoc->id]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
-            $db->commit();
-            return true;
-
-        } catch (Exception $e) {
+        if (!$row || $row['quantity'] < $qty) {
             $db->rollBack();
             return false;
         }
+
+        if (!$this->canAddToLocation($product, $toLoc, $qty)) {
+            $db->rollBack();
+            return false;
+        }
+
+        $newQtyFrom = $row['quantity'] - $qty;
+
+        if ($newQtyFrom === 0) {
+            $stmt = $db->prepare("
+                DELETE FROM product_locations 
+                WHERE product_id = :p AND location_id = :l
+            ");
+            $stmt->execute([':p' => $product->id, ':l' => $fromLoc->id]);
+        } else {
+            $stmt = $db->prepare("
+                UPDATE product_locations 
+                SET quantity = :q 
+                WHERE product_id = :p AND location_id = :l
+            ");
+            $stmt->execute([
+                ':q' => $newQtyFrom,
+                ':p' => $product->id,
+                ':l' => $fromLoc->id
+            ]);
+        }
+
+        $stmt = $db->prepare("
+            SELECT id, quantity 
+            FROM product_locations 
+            WHERE product_id = :p AND location_id = :l
+        ");
+        $stmt->execute([':p' => $product->id, ':l' => $toLoc->id]);
+        $rowTo = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($rowTo) {
+            $stmt = $db->prepare("
+                UPDATE product_locations 
+                SET quantity = :q 
+                WHERE id = :id
+            ");
+            $stmt->execute([
+                ':q' => $rowTo['quantity'] + $qty,
+                ':id' => $rowTo['id']
+            ]);
+        } else {
+            $stmt = $db->prepare("
+                INSERT INTO product_locations (product_id, location_id, quantity)
+                VALUES (:p, :l, :q)
+            ");
+            $stmt->execute([
+                ':p' => $product->id,
+                ':l' => $toLoc->id,
+                ':q' => $qty
+            ]);
+        }
+
+        $db->commit();
+        return true;
+
+    } catch (Exception $e) {
+        $db->rollBack();
+        return false;
     }
+    }
+
+  public function getLocationUsage(int $locationId): array{
+    $db = Database::getConnection();
+
+    $stmt = $db->prepare("
+      SELECT pl.quantity, p.weight, p.volume
+      FROM product_locations pl
+      JOIN products p ON p.id = pl.product_id
+      WHERE pl.location_id = :loc
+    ");
+    
+    $stmt->execute([':loc' => $locationId]);
+
+    $totalUnits = 0;
+    $totalWeight = 0.0;
+    $totalVolume = 0.0;
+
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+      $w = $row['weight'] ?? 0.0;
+      $v = $row['volume'] ?? 0.0;
+      $qty = (int)$row['quantity'];
+      $totalUnits += $qty;
+      $totalWeight += $qty * (float)$w;
+      $totalVolume += $qty * (float)$v;
+    }
+
+    return [
+      'units' => $totalUnits,
+      'weight' => $totalWeight,
+      'volume' => $totalVolume
+    ];
+  }
+
+  public function getFreeCapacity(Location $loc, array $usage): array{
+    return [
+        'units' => $loc->maxUnits ? $loc->maxUnits - $usage['units'] : null,
+        'weight' => $loc->maxWeight ? $loc->maxWeight - $usage['weight'] : null,
+        'volume' => $loc->maxVolume ? $loc->maxVolume - $usage['volume'] : null
+    ];
+  }
+
+  public function canAddToLocation(Product $product, Location $loc, int $qty): bool{
+    $usage = $this->getLocationUsage($loc->id);
+
+    // sztuki
+    if ($loc->maxUnits !== null) {
+        if ($usage['units'] + $qty > $loc->maxUnits) {
+            return false;
+        }
+    }
+
+    // waga
+    if ($loc->maxWeight !== null) {
+        if ($usage['weight'] + ($product->weight * $qty) > $loc->maxWeight) {
+            return false;
+        }
+    }
+
+    // objętość
+    if ($loc->maxVolume !== null) {
+        if ($usage['volume'] + ($product->volume * $qty) > $loc->maxVolume) {
+            return false;
+        }
+    }
+
+    return true;
+  }
+
+
+
 }
 ?>

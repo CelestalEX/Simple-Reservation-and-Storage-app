@@ -5,17 +5,17 @@ require_once __DIR__ . '/../Models/Product.php';
 
 class ProductService {
 
-    public function addProduct(Product $product): void {
+    public function addProduct(Product $product): bool {
         $db = Database::getConnection();
 
       $query = $db->prepare("
         INSERT INTO products 
-        (name, quantity, price, sku, category, description, unit, min_quantity, created_at, updated_at)
+        (name, quantity, price, sku, category, description, unit, min_quantity, use_locations, weight, volume, created_at, updated_at)
         VALUES 
-        (:name, :quantity, :price, :sku, :category, :description, :unit, :min_quantity, :created_at, :updated_at)
+        (:name, :quantity, :price, :sku, :category, :description, :unit, :min_quantity, :use_locations, :weight, :volume, :created_at, :updated_at)
       ");
 
-      $query->execute([
+      return $query->execute([
         ':name' => $product->name,
         ':quantity' => $product->quantity,
         ':price'=> $product->price,
@@ -24,6 +24,9 @@ class ProductService {
         ':description' => $product->description,
         ':unit' => $product->unit,
         ':min_quantity' => $product->minQuantity,
+        ':use_locations' => $product->useLocations ? 1 : 0,
+        ':weight'=> $product->weight,
+        ':volume'=> $product->volume,
         ':created_at' => $product->createdAt,
         ':updated_at' => $product->updatedAt
         ]);
@@ -37,19 +40,23 @@ class ProductService {
 
         $products = [];
         foreach ($rows as $row) {
-            $products[] = new Product(
-                $row['id'],
-                $row['name'],
-                $row['quantity'],
-                $row['price'],
-                $row['sku'],
-                $row['category'],
-                $row['description'],
-                $row['unit'],
-                $row['min_quantity'],
-                $row['created_at'],
-                $row['updated_at']
-            );
+          $p = new Product();
+          $p->id = (int)$row['id'];
+          $p->name = $row['name'];
+          $p->quantity = (int)$row['quantity'];
+          $p->sku = $row['sku'];
+          $p->category = $row['category'];
+          $p->description = $row['description'];
+          $p->unit = $row['unit'];
+          $p->minQuantity = (int)$row['min_quantity'];
+          $p->createdAt = $row['created_at'];
+          $p->updatedAt = $row['updated_at'];
+          $p->price = (float)$row['price'];
+          $p->useLocations = (bool)$row['use_locations'];
+          $p->weight = (float)$row['weight'];
+          $p->volume = (float)$row['volume'];
+
+          $products[] = $p;
         }
 
         return $products;
@@ -57,6 +64,8 @@ class ProductService {
 
     public function getProductById(int $id): ?Product {
         $db = Database::getConnection();
+
+        
 
         $query = $db->prepare('SELECT * FROM products WHERE id = :id');
         $query->execute([':id' => $id]);
@@ -67,22 +76,26 @@ class ProductService {
             return null;
         }
 
-        return new Product(
-          $rows['id'],
-          $rows['name'],
-          $rows['quantity'],
-          $rows['price'],
-          $rows['sku'],
-          $rows['category'],
-          $rows['description'],
-          $rows['unit'],
-          $rows['min_quantity'],
-          $rows['created_at'],
-          $rows['updated_at']
-    );
+        $p = new Product();
+        $p->id = (int)$rows['id'];
+        $p->name = $rows['name'];
+        $p->sku = $rows['sku'];
+        $p->category = $rows['category'];
+        $p->price = (float)$rows['price'];
+        $p->quantity = (int)$rows['quantity'];
+        $p->minQuantity = (int)$rows['min_quantity'];
+        $p->unit = $rows['unit'];
+        $p->description = $rows['description'];
+        $p->weight = (float)$rows['weight'];
+        $p->volume = (float)$rows['volume'];
+        $p->useLocations = (bool)$rows['use_locations'];
+        $p->createdAt = $rows['created_at'];
+        $p->updatedAt = $rows['updated_at'];
+
+        return $p;
     }
 
-    public function updateProduct(Product $product): void {
+    public function updateProduct(Product $product): bool {
         $db = Database::getConnection();
 
         $query = $db->prepare(
@@ -95,10 +108,13 @@ class ProductService {
             description = :description,
             unit = :unit,
             min_quantity = :min_quantity,
+            use_locations = :use_locations,
+            weight = :weight,
+            volume = :volume,
             updated_at = :updated_at
           WHERE id = :id'
         );
-        $query->execute([
+        return $query->execute([
             ':name' => $product->name,
             ':quantity' => $product->quantity,
             ':price' => $product->price,
@@ -107,19 +123,22 @@ class ProductService {
             ':description' => $product->description,
             ':unit' => $product->unit,
             ':min_quantity' => $product->minQuantity,
+            ':use_locations' => $product->useLocations ? 1 : 0,
+            ':weight'=> $product->weight,
+            ':volume'=> $product->volume,
             ':updated_at' => $product->updatedAt,
             ':id' => $product->id
         ]);
     }
 
-    public function deleteProduct(int $id): void {
+    public function deleteProduct(int $id): bool {
         $db = Database::getConnection();
 
         $query = $db->prepare("DELETE FROM products WHERE id = :id");
         $query->execute([':id' => $id]);
 
         $reservation = $db->prepare('DELETE FROM reservations WHERE product_id = :id');
-        $reservation->execute([':id'=> $id]);
+        return $reservation->execute([':id'=> $id]);
     }
 
     public function getWarehouseValueRaport(): array {

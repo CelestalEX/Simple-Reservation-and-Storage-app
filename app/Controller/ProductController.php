@@ -3,6 +3,7 @@
 require_once __DIR__ . '/../view/TableRenderer.php';
 require_once __DIR__ .'/../Models/Product.php';
 require_once __DIR__ .'/../helpers/InputHelper.php';
+require_once __DIR__ .'/../Database/Database.php';
 
 class ProductController {
 
@@ -20,7 +21,10 @@ class ProductController {
             return;
         }
 
-        $headers = ["Lp", "ID", "Nazwa", "Cena", "SKU", "Kategoria", "Ilość", "Min", "Jedn.", "Utworzono", "Zaktualizowano"];
+        $headers = [
+            "LP", "ID", "Nazwa", "SKU", "Kategoria", "Ilość", "Min", "Jedn.",
+            "Cena", "Waga", "Objętość (m^3)", "Lokacje?", "Utworzono"
+        ];
         $rows = [];
 
         $i = 1;
@@ -29,14 +33,16 @@ class ProductController {
                 $i++,
                 $p->id,
                 $p->name,
-                number_format($p->price,2)." zł",
                 $p->sku,
                 $p->category,
                 $p->quantity,
                 $p->minQuantity,
                 $p->unit,
-                $p->createdAt,
-                $p->updatedAt,
+                number_format($p->price, 2),
+                number_format($p->weight, 2),
+                number_format($p->volume, 2),
+                $p->useLocations ? "TAK" : "NIE",
+                $p->createdAt
             ];
         }
 
@@ -44,47 +50,30 @@ class ProductController {
     }
 
     public function add(): void {
-        
-      $name = InputHelper::readString("Podaj nazwę Produktu (enter by anulować akcję): ", true);
-      if($name === null){
-        echo "Powrót do menu";
-        return;
-      };
 
-      $sku = InputHelper::readString("Podaj SKU Produktu: ");
+      $p = new Product();
+      $name = InputHelper::readString("Nazwa (Enter by anulować akcję): ", true);
+      if ($name === null){ 
+        return; 
+      }
+      $p->name = $name;
+      $p->sku = InputHelper::readString("SKU: ");
+      $p->category = InputHelper::readString("Kategoria: ");
+      $p->quantity = InputHelper::readInt("Ilość: ");
+      $p->price = InputHelper::readFloat("Cena: ");
+      $p->minQuantity = InputHelper::readInt("Minimalna ilość: ");
+      $p->unit = InputHelper::readString("Jednostka: ");
+      $p->description = InputHelper::readString("Opis (ENTER = brak): ", true) ?: null;
+      $p->weight = InputHelper::readFloat("Waga (kg): ");
+      $p->volume = InputHelper::readFloat("Objętość (m3): ");
+      $p->createdAt = date("Y-m-d H:i:s");
+      $p->updatedAt = date("Y-m-d H:i:s");
 
-      $category = InputHelper::readString("Podaj kategorię Produktu: ");
-
-      $price = InputHelper::readFloat("Podaj cenę Produktu: ");
-
-      $description = InputHelper::readString("Podaj opis Produktu (opcjonalnie)", true);
-
-      $unit = InputHelper::readString("Podaj Jednostkę (szt/kg/l): ");
-
-      $quantity = InputHelper::readInt("Ilość początkowa: ");
-
-      $minQuantity = InputHelper::readInt("Minimalny stan magazynowy: ");
-
-
-      $now = date('Y-m-d H:i:s');
-
-      $product = new Product(
-        null,
-        $name,
-        $quantity,
-        $price,
-        $sku,
-        $category,
-        $description,
-        $unit,
-        $minQuantity,
-        $now,
-        $now
-      );
-
-      $this->productService->addProduct($product);
-
-      echo "Produkt dodany!\n";
+      if ($this->productService->addProduct($p)) {
+        echo "Produkt dodany.\n";
+      } else {
+        echo "Błąd podczas dodawania produktu.\n";
+      }
     }
 
     public function edit(): void {
@@ -95,7 +84,7 @@ class ProductController {
       if ($id === null){
         echo "Powrót do menu";
         return;
-      };
+      } 
 
       $product = $this->productService->getProductById($id);
 
@@ -113,6 +102,9 @@ class ProductController {
       $category = InputHelper::readString("Nowa kategoria ({$product->category}): ", true);
       if ($category === null) $category = $product->category;
 
+      $quantityInput = InputHelper::readInt("Nowa ilość ({$product->quantity}): ", true);
+      $quantity = $quantityInput === null ? $product->quantity : (int)$quantityInput;
+
       $price = InputHelper::readFloat("Nowa cena ({$product->price}): ", true);
       if ($price === null) $price = $product->price;
 
@@ -122,30 +114,25 @@ class ProductController {
       $unit = InputHelper::readString("Nowa jednostka ({$product->unit}): ", true);
       if ($unit === null) $unit = $product->unit;
 
-      $quantityInput = InputHelper::readInt("Nowa ilość ({$product->quantity}): ", true);
-      $quantity = $quantityInput === null ? $product->quantity : (int)$quantityInput;
-
       $minInput = InputHelper::readInt("Nowy minimalny stan ({$product->minQuantity}): ", true);
       $minQuantity = $minInput === null ? $product->minQuantity : (int)$minInput;
 
-      $updatedAt = date('Y-m-d H:i:s');
+      $useLoc = InputHelper::readString("Używać lokalizacji? ({$product->useLocations}) 1/0: ", true);
+      if ($useLoc !== "") $product->useLocations = (bool)$useLoc;
 
-      $updated = new Product(
-        $id,
-        $name,
-        $quantity,
-        $price,
-        $sku,
-        $category,
-        $description,
-        $unit,
-        $minQuantity,
-        $product->createdAt,
-        $updatedAt
-      );
+      $weight = InputHelper::readString("Waga ({$product->weight}): ", true);
+      if ($weight !== "") $product->weight = (float)$weight;
 
-      $this->productService->updateProduct($updated);
-      echo "Produkt zaktualizowany!\n";
+      $volume = InputHelper::readString("Objętość ({$product->volume}): ", true);
+      if ($volume !== "") $product->volume = (float)$volume;
+
+      $product->updatedAt = date('Y-m-d H:i:s');
+
+      if ($this->productService->updateProduct($product)) {
+        echo "Produkt zaktualizowany.\n";
+      } else {
+        echo "Błąd podczas aktualizacji.\n";
+      }
     }
 
     public function delete(): void {
@@ -164,8 +151,7 @@ class ProductController {
         return;
       }
 
-      echo "Czy na pewno chcesz usunąć '{$product->name}'? (t/n)";
-      $confirm = trim(fgets(STDIN));
+      $confirm = strtolower(InputHelper::readString("Czy na pewno chcesz usunąć '{$product->name}'? (t/N): ", true)) ?? "n";
 
       if (strtolower($confirm) === "t") {
         $this->productService->deleteProduct($id);

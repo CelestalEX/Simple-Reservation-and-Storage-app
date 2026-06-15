@@ -109,8 +109,10 @@ class App {
           case 2: $this->locationController->createLocation(); break;
           case 3: $this->locationController->editLocation(); break;
           case 4: $this->locationController->deleteLocation(); break;
-          case 5: $this->locationController->moveProduct(); break;
-          case 6: $this->locationController->showProductLocations(); break;
+          case 5: $this->locationController->addProductToLocation(); break;
+          case 6: $this->locationController->moveProduct(); break;
+          case 7: $this->locationController->showProductLocations(); break;
+          case 8: $this->locationController->showLocationContents(); break;
           case 0: return;
         }
       };

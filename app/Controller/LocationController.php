@@ -21,41 +21,107 @@ class LocationController
         $this->productService = new ProductService();
     }
 
-    public function listLocations(): void
-    {
-        $locations = $this->locationService->getAll();
+  public function listLocations(): void{
+    $locations = $this->locationService->getAll();
 
-        echo "\n=== LISTA LOKALIZACJI ===\n";
+    echo "\n=== LISTA LOKALIZACJI ===\n";
 
-        if (empty($locations)) {
-            echo "Brak lokalizacji.\n";
-            return;
-        }
+    if (empty($locations)) {
+        echo "Brak lokalizacji.\n";
+        return;
+    }
 
-        $headers = ["ID","Kod", "Typ", "Status", "Max szt.", "Max kg", "Max m3", "Opis","Utworzono"];
-        $rows = [];
+    $headers = [
+        "Kod", "Typ", "Status",
+        "Zajęte szt", "Max szt", "Wolne szt",
+        "Zajęte kg", "Max kg", "Wolne kg",
+        "Zajęte m3", "Max m3", "Wolne m3"
+    ];
 
-        foreach ($locations as $loc) {
-          $rows[] = [
-            $loc->id,
+    $rows = [];
+
+    foreach ($locations as $loc) {
+        $usage = $this->productLocationService->getLocationUsage($loc->id);
+        $free = $this->productLocationService->getFreeCapacity($loc, $usage);
+
+        $rows[] = [
             $loc->code,
             $loc->type,
             $loc->status,
-            $loc->maxUnits ?? "-",
-            $loc->maxWeight ?? "-",
-            $loc->maxVolume ?? "-",
-            (string)($loc->description ?? "-"),
-            $loc->createdAt
-          ];
-        }
 
-        TableRenderer::render($headers, $rows);
+            $usage['units'],
+            $loc->maxUnits ?? "-",
+            $free['units'] ?? "-",
+
+            number_format($usage['weight'], 2),
+            $loc->maxWeight ?? "-",
+            $free['weight'] ?? "-",
+
+            number_format($usage['volume'], 3),
+            $loc->maxVolume ?? "-",
+            $free['volume'] ?? "-"
+        ];
     }
+
+    TableRenderer::render($headers, $rows);
+  }
+
+  public function showLocationContents(): void{
+    echo "\n=== ZAWARTOŚĆ LOKALIZACJI ===\n";
+    
+    IdSelectorHelper::showLocations();
+    $locId = InputHelper::readInt("ID lokalizacji (Enter by anulować akcję): ", true);
+
+    if ($locId === null) {
+      echo "Powrót do menu\n";
+      return;
+    }
+
+    $loc = $this->locationService->getById($locId);
+
+    if (!$loc) {
+      echo "Lokalizacja nie istnieje.\n";
+      return;
+    }
+
+    $stmt = Database::getConnection()->prepare("
+      SELECT p.name, pl.quantity, p.weight, p.volume
+      FROM product_locations pl
+      JOIN products p ON p.id = pl.product_id
+      WHERE pl.location_id = :loc
+    ");
+    $stmt->execute([':loc' => $locId]);
+
+    $headers = ["Produkt", "Ilość", "Waga/szt", "Objętość/szt"];
+    $rows = [];
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+      $rows[] = [
+        $row['name'],
+        $row['quantity'],
+        $row['weight'],
+        $row['volume']
+      ];
+    }
+
+    if (empty($rows)) {
+      echo "Lokalizacja jest pusta.\n";
+      return;
+    }
+
+    TableRenderer::render($headers, $rows);
+  }
+
 
     public function createLocation(): void{
       echo "\n=== DODAWANIE LOKALIZACJI ===\n";
 
-      $code = InputHelper::readString("Kod lokalizacji (np. A1-R2-P3): ");
+      $code = InputHelper::readString("Kod lokalizacji (np. A1-R2-P3)(Enter by anulować akcję): ", true);
+      
+      if ($code === null) {
+        echo "Powrót do menu\n";
+        return;
+      }
+
       $desc = InputHelper::readString("Opis (opcjonalnie): ", true);
 
       $types = ['pick','putaway','bulk','returns','damaged','expired'];
@@ -100,79 +166,14 @@ class LocationController
       }
     }
 
-    public function showProductLocations(): void{
-        echo "\n=== ROZMIESZCZENIE PRODUKTU ===\n";
-
-        IdSelectorHelper::showProducts();
-        $productId = InputHelper::readInt("Podaj ID produktu: ");
-        $product = $this->productService->getProductById($productId);
-
-        if (!$product) {
-            echo "Produkt nie istnieje.\n";
-            return;
-        }
-
-        $locations = $this->productLocationService->getLocationsForProduct($productId);
-
-        echo "\nProdukt: {$product->name}\n";
-
-        if (empty($locations)) {
-            echo "Produkt nie znajduje się w żadnej lokalizacji.\n";
-            return;
-        }
-
-        echo "+--------------+--------+\n";
-        echo "| Lokalizacja  | Ilość  |\n";
-        echo "+--------------+--------+\n";
-
-        foreach ($locations as $pl) {
-            $loc = $this->locationService->getById($pl->locationId);
-            echo "| {$loc->code}           | {$pl->quantity}\n";
-        }
-
-        echo "+--------------+--------+\n";
-        echo "SUMA: " . $this->productLocationService->getTotalQuantity($productId) . " szt.\n";
-    }
-
-    public function moveProduct(): void{
-        echo "\n=== PRZESUNIĘCIE PRODUKTU ===\n";
-
-        IdSelectorHelper::showProducts();
-        $productId = InputHelper::readInt("Podaj ID produktu: ");
-        $product = $this->productService->getProductById($productId);
-
-        if (!$product) {
-            echo "Produkt nie istnieje.\n";
-            return;
-        }
-
-        IdSelectorHelper::showLocations();
-        $from = InputHelper::readInt("ID lokalizacji źródłowej: ");
-        $to = InputHelper::readInt("ID lokalizacji docelowej: ");
-        $qty = InputHelper::readInt("Ilość do przesunięcia: ");
-
-        $confirm = strtolower(
-            InputHelper::readString("Potwierdzić przesunięcie $qty szt.? (t/N): ", true)
-        ) ?: "n";
-
-        if ($confirm !== "t") {
-            echo "Anulowano.\n";
-            return;
-        }
-
-        if ($this->productLocationService->move($productId, $from, $to, $qty)) {
-            echo "Przesunięcie wykonane.\n";
-        } else {
-            echo "Błąd: brak ilości lub niepoprawne lokalizacje.\n";
-        }
-    }
-
     public function editLocation(): void{
-      echo "\n===EDYCJA LOKJALIZACJI ===\n";
+      echo "\n=== EDYCJA LOKJALIZACJI ===\n";
 
       IdSelectorHelper::showLocations();
-      $id = InputHelper::readInt("Podaj ID lokalizacji (enter by anulować akcję): ", true);
+      $id = InputHelper::readInt("Podaj ID lokalizacji (Enter by anulować akcję): ", true);
+
       if ($id === null) {
+        echo "Powrót do menu\n";
         return;
       }
 
@@ -231,7 +232,7 @@ class LocationController
         $status = $statusInput;
       }
 
-      echo "Aktualna pojemność (sztuki): " . ($loc->maxUnits ?? "-") . "\n";
+      echo "\nAktualna pojemność (sztuki): " . ($loc->maxUnits ?? "-") . "\n";
       $unitsInput = InputHelper::readString("Nowa pojemność (ENTER = bez zmian, '-' = usuń): ", true);
 
       if ($unitsInput === null || $unitsInput === "") {
@@ -242,7 +243,7 @@ class LocationController
         $maxUnits = (int)$unitsInput;
       }
 
-      echo "Aktualna pojemność (objętość): " . ($loc->maxVolume ?? "-") . "\n";
+      echo "\nAktualna pojemność (objętość): " . ($loc->maxVolume ?? "-") . "\n";
       $volumeInput = InputHelper::readString("Nowa pojemność (ENTER = bez zmian, '-' = usuń): ", true);
 
       if ($volumeInput === null || $volumeInput === "") {
@@ -253,12 +254,12 @@ class LocationController
         $maxVolume = (int)$volumeInput;
       }
 
-      echo "Aktualna pojemność (waga): " . ($loc->maxWeight ?? "-") . "\n";
+      echo "\nAktualna pojemność (waga): " . ($loc->maxWeight ?? "-") . "\n";
       $weightInput = InputHelper::readString("Nowa pojemność (ENTER = bez zmian, '-' = usuń): ", true);
 
       if ($weightInput === null || $weightInput === "") {
         $maxWeight = $loc->maxWeight;
-      } elseif ($unitsInput === "-") {
+      } elseif ($weightInput === "-") {
         $maxWeight = null;
       } else {
         $maxWeight = (int)$weightInput;
@@ -285,7 +286,9 @@ class LocationController
       IdSelectorHelper::showLocations();
 
       $id = InputHelper::readInt("Podaj ID lokalizacji (Enter by anulować akcję): ", true);
+
       if ($id === null) {
+        echo "Powrót do menu\n";
         return;
       }
 
@@ -310,5 +313,126 @@ class LocationController
       }
 
     }
-}
+
+    public function addProductToLocation(): void {
+      echo "\n=== DODAWANIE PRODUKTU DO LOKALIZACJI ===\n";
+
+      IdSelectorHelper::showProducts();
+      $productId = InputHelper::readInt("ID produktu (Enter by anulować akcję): ", true);
+
+      if ($productId === null) {
+        echo "Powrót do menu\n";
+        return;
+      }
+
+      $product = $this->productService->getProductById($productId);
+
+      if (!$product) {
+        echo "Produkt nie istnieje.\n";
+        return;
+      }
+
+      IdSelectorHelper::showLocations();
+      $locationId = InputHelper::readInt("ID lokalizacji: ");
+      $loc = $this->locationService->getById($locationId);
+
+      if (!$loc) {
+        echo "Lokalizacja nie istnieje.\n";
+        return;
+      }
+
+      $qty = InputHelper::readInt("Ilość do dodania: ");
+
+      if ($this->productLocationService->addToLocation($product, $loc, $qty)) {
+        echo "Dodano $qty szt. produktu do lokalizacji {$loc->code}.\n";
+      } else {
+        echo "Błąd podczas dodawania.\n";
+      }
+    }
+
+
+    public function showProductLocations(): void{
+      echo "\n=== ROZMIESZCZENIE PRODUKTU ===\n";
+
+      IdSelectorHelper::showProducts();
+      $productId = InputHelper::readInt("ID produktu (Enter by anulować akcję): ", true);
+
+      if ($productId === null) {
+        echo "Powrót do menu\n";
+        return;
+      }
+
+      $product = $this->productService->getProductById($productId);
+
+      if (!$product) {
+        echo "Produkt nie istnieje.\n";
+        return;
+      }
+
+      $locations = $this->productLocationService->getLocationsForProduct($productId);
+
+      if (empty($locations)) {
+        echo "Produkt nie znajduje się w żadnej lokalizacji.\n";
+        return;
+      }
+
+      $headers = ["Lokalizacja", "Typ", "Status", "Ilość"];
+      $rows = [];
+
+      foreach ($locations as $pl) {
+        $loc = $this->locationService->getById($pl->locationId);
+        $rows[] = [
+          $loc->code,
+          $loc->type,
+          $loc->status,
+          $pl->quantity
+        ];
+      }
+
+      TableRenderer::render($headers, $rows);
+    }
+
+    public function moveProduct(): void{
+        echo "\n=== PRZESUNIĘCIE PRODUKTU ===\n";
+
+        IdSelectorHelper::showProducts();
+        $productId = InputHelper::readInt("Podaj ID produktu (Enter by anulować akcję): ", true);
+
+        if ($productId === null) {
+          echo "Powrót do menu\n";
+          return;
+        }
+
+        $product = $this->productService->getProductById($productId);
+
+        if (!$product) {
+            echo "Produkt nie istnieje.\n";
+            return;
+        }
+
+        IdSelectorHelper::showLocations();
+        $fromId = InputHelper::readInt("ID lokalizacji źródłowej: ");
+        $toId = InputHelper::readInt("ID lokalizacji docelowej: ");
+        $qty = InputHelper::readInt("Ilość do przesunięcia: ");
+
+        $from = $this->locationService->getById($fromId);
+        $to = $this->locationService->getById($toId);
+
+        $confirm = strtolower(
+            InputHelper::readString("Potwierdzić przesunięcie $qty szt.? (t/N): ", true)
+        ) ?: "n";
+
+        if ($confirm !== "t") {
+            echo "Anulowano.\n";
+            return;
+        }
+
+        if ($this->productLocationService->move($product, $from, $to, $qty)) {
+            echo "Przesunięcie wykonane.\n";
+        } else {
+            echo "Błąd: brak ilości lub niepoprawne lokalizacje.\n";
+        }
+    }
+  }
+
 ?>
